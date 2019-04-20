@@ -21,7 +21,7 @@ main (int argc, const char *argv[])
    int places = 2;
    const char *infile = NULL;
    const char *outfile = NULL;
-   double zcut = -0.25;         // Default cut depth
+   double zcut = -0.5;         // Default cut depth
    double zskip = 5;            // Well above
    double zclear = 0.5;         // Just above
    {                            // POPT
@@ -202,6 +202,7 @@ main (int argc, const char *argv[])
    up ();
    fprintf (o, "M5\n");
    skip (0, 0);
+   fprintf(o,"G0Z0\n");
    fprintf (o, "M30\n");
    fclose (o);
    fclose (i);
