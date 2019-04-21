@@ -70,7 +70,7 @@ main (int argc, const char *argv[])
       sign = 1;
    // Defaults
    if (!fdown)
-      fdown = fcut / 2;
+      fdown = fcut;
    if (!fup)
       fup = fskip;
    // Get EPS and modify
