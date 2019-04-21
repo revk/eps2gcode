@@ -13,7 +13,7 @@ int debug = 0;
 int
 main (int argc, const char *argv[])
 {
-   int fcut = 20;
+   int fcut = 15;
    int fdown = 0;
    int fup = 0;
    int fskip = 500;
