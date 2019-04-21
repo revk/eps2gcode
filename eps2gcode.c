@@ -19,6 +19,8 @@ main (int argc, const char *argv[])
    int fskip = 500;
    int speed = 2000;
    int places = 3;
+   int g0 = 0;
+   int sign = 0;
    const char *infile = NULL;
    const char *outfile = NULL;
    double zcut = -0.25;         // Default cut depth
@@ -30,13 +32,15 @@ main (int argc, const char *argv[])
          {"f-cut", 'f', POPT_ARG_INT | POPT_ARGFLAG_SHOW_DEFAULT, &fcut, 0, "Feed rate cutting", "N"},
          {"f-down", 0, POPT_ARG_INT, &fdown, 0, "Feed rate down", "N"},
          {"f-up", 0, POPT_ARG_INT, &fup, 0, "Feed rate up", "N"},
-         {"f-skip", 0, POPT_ARG_INT | POPT_ARGFLAG_SHOW_DEFAULT, &fskip, 0, "Feed rate skipping (may be ignored as uses G0)", "N"},
+         {"f-skip", 0, POPT_ARG_INT | POPT_ARGFLAG_SHOW_DEFAULT, &fskip, 0, "Feed rate skipping (may be ignored if using G0)", "N"},
          {"speed", 's', POPT_ARG_INT | POPT_ARGFLAG_SHOW_DEFAULT, &speed, 0, "Cutting speed", "rpm"},
          {"in-file", 'i', POPT_ARG_STRING, &infile, 0, "Input EPS", "filename"},
          {"out-file", 'o', POPT_ARG_STRING, &outfile, 0, "Output GCODE", "filename"},
          {"z-cut", 0, POPT_ARG_DOUBLE | POPT_ARGFLAG_SHOW_DEFAULT, &zcut, 0, "Cut depth", "mm"},
          {"z-skip", 0, POPT_ARG_DOUBLE | POPT_ARGFLAG_SHOW_DEFAULT, &zskip, 0, "Skip depth", "mm"},
          {"places", 0, POPT_ARG_INT | POPT_ARGFLAG_SHOW_DEFAULT, &places, 0, "Decimal places", "N"},
+         {"g0", 0, POPT_ARG_NONE, &g0, 0, "Use G0"},
+         {"neg", 0, POPT_ARG_NONE, &sign, 0, "Use negative X/Y"},
          {"debug", 'v', POPT_ARG_NONE, &debug, 0, "Debug"},
          POPT_AUTOHELP {}
       };
@@ -60,6 +64,10 @@ main (int argc, const char *argv[])
       }
       poptFreeContext (optCon);
    }
+   if (sign)
+      sign = -1;
+   else
+      sign = 1;
    // Defaults
    if (!fdown)
       fdown = fcut / 2;
@@ -116,12 +124,12 @@ main (int argc, const char *argv[])
    void setx (double x)
    {
       if (x != lastx)
-         fprintf (o, "X%.*lf", places, lastx = x);
+         fprintf (o, "X%.*lf", places, (lastx = x) * sign);
    }
    void sety (double y)
    {
       if (y != lasty)
-         fprintf (o, "Y%.*lf", places, lasty = y);
+         fprintf (o, "Y%.*lf", places, (lasty = y) * sign);
    }
    void setf (double f)
    {
@@ -134,7 +142,7 @@ main (int argc, const char *argv[])
          return;
       fprintf (o, "G1Z%.*lf", places, zclear);
       setf (fup);
-      fprintf (o, "\nG0Z%.*lf", places, zskip);
+      fprintf (o, "\nG%dZ%.*lf", g0 ? 0 : 1, places, zskip);
       setf (fskip);
       fprintf (o, "\n");
       isup = 1;
@@ -143,7 +151,7 @@ main (int argc, const char *argv[])
    {
       if (!isup)
          return;
-      fprintf (o, "G0Z%.*lf", places, zclear);
+      fprintf (o, "G%dZ%.*lf", g0 ? 0 : 1, places, zclear);
       setf (fskip);
       fprintf (o, "\nG1Z%.*lf", places, zcut);
       setf (fdown);
@@ -156,7 +164,7 @@ main (int argc, const char *argv[])
       if (lastx == x && lasty == y)
          return;
       up ();
-      fprintf (o, "G0");
+      fprintf (o, "G%d", g0 ? 0 : 1);
       setx (x);
       sety (y);
       setf (fskip);
@@ -202,8 +210,7 @@ main (int argc, const char *argv[])
    up ();
    fprintf (o, "M5\n");
    skip (0, 0);
-   fprintf(o,"G0Z0\n");
-   fprintf (o, "M30\n");
+   fprintf (o, "G%d\nM30\n", g0 ? 0 : 1);
    fclose (o);
    fclose (i);
    if (!debug)
