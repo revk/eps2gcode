@@ -210,7 +210,7 @@ main (int argc, const char *argv[])
    up ();
    fprintf (o, "M5\n");
    skip (0, 0);
-   fprintf (o, "G%d\nM30\n", g0 ? 0 : 1);
+   fprintf (o, "M30\n");
    fclose (o);
    fclose (i);
    if (!debug)
