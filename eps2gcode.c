@@ -18,7 +18,7 @@ main (int argc, const char *argv[])
    int fup = 0;
    int fskip = 500;
    int speed = 2000;
-   int places = 2;
+   int places = 3;
    const char *infile = NULL;
    const char *outfile = NULL;
    double zcut = -0.25;         // Default cut depth
