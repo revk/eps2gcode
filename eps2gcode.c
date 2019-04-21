@@ -13,13 +13,13 @@ int debug = 0;
 int
 main (int argc, const char *argv[])
 {
-   int fcut = 25;
+   int fcut = 20;
    int fdown = 0;
    int fup = 0;
    int fskip = 500;
    int speed = 2000;
    int places = 3;
-   int g0 = 0;
+   int g1 = 0;
    int sign = 0;
    const char *infile = NULL;
    const char *outfile = NULL;
@@ -39,7 +39,7 @@ main (int argc, const char *argv[])
          {"z-cut", 0, POPT_ARG_DOUBLE | POPT_ARGFLAG_SHOW_DEFAULT, &zcut, 0, "Cut depth", "mm"},
          {"z-skip", 0, POPT_ARG_DOUBLE | POPT_ARGFLAG_SHOW_DEFAULT, &zskip, 0, "Skip depth", "mm"},
          {"places", 0, POPT_ARG_INT | POPT_ARGFLAG_SHOW_DEFAULT, &places, 0, "Decimal places", "N"},
-         {"g0", 0, POPT_ARG_NONE, &g0, 0, "Use G0"},
+         {"g1", 0, POPT_ARG_NONE, &g1, 0, "Use G1 for skipping over"},
          {"neg", 0, POPT_ARG_NONE, &sign, 0, "Use negative X/Y"},
          {"debug", 'v', POPT_ARG_NONE, &debug, 0, "Debug"},
          POPT_AUTOHELP {}
@@ -142,7 +142,7 @@ main (int argc, const char *argv[])
          return;
       fprintf (o, "G1Z%.*lf", places, zclear);
       setf (fup);
-      fprintf (o, "\nG%dZ%.*lf", g0 ? 0 : 1, places, zskip);
+      fprintf (o, "\nG%dZ%.*lf", g1, places, zskip);
       setf (fskip);
       fprintf (o, "\n");
       isup = 1;
@@ -151,7 +151,7 @@ main (int argc, const char *argv[])
    {
       if (!isup)
          return;
-      fprintf (o, "G%dZ%.*lf", g0 ? 0 : 1, places, zclear);
+      fprintf (o, "G%dZ%.*lf", g1, places, zclear);
       setf (fskip);
       fprintf (o, "\nG1Z%.*lf", places, zcut);
       setf (fdown);
@@ -164,7 +164,7 @@ main (int argc, const char *argv[])
       if (lastx == x && lasty == y)
          return;
       up ();
-      fprintf (o, "G%d", g0 ? 0 : 1);
+      fprintf (o, "G%d", g1);
       setx (x);
       sety (y);
       setf (fskip);
