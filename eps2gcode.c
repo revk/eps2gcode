@@ -21,7 +21,7 @@ main (int argc, const char *argv[])
    int places = 2;
    const char *infile = NULL;
    const char *outfile = NULL;
-   double zcut = -0.5;         // Default cut depth
+   double zcut = -0.25;         // Default cut depth
    double zskip = 5;            // Well above
    double zclear = 0.5;         // Just above
    {                            // POPT
