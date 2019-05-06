@@ -26,6 +26,7 @@ main (int argc, const char *argv[])
    double zcut = -0.25;         // Default cut depth
    double zskip = 5;            // Well above
    double zclear = 0.5;         // Just above
+   double scale = 1;
    {                            // POPT
       poptContext optCon;       // context for parsing command-line options
       const struct poptOption optionsTable[] = {
@@ -41,6 +42,7 @@ main (int argc, const char *argv[])
          {"places", 0, POPT_ARG_INT | POPT_ARGFLAG_SHOW_DEFAULT, &places, 0, "Decimal places", "N"},
          {"g1", 0, POPT_ARG_NONE, &g1, 0, "Use G1 for skipping over"},
          {"neg", 0, POPT_ARG_NONE, &sign, 0, "Use negative X/Y"},
+         {"scale", 'S', POPT_ARG_DOUBLE, &scale, 0, "Scale", "N"},
          {"debug", 'v', POPT_ARG_NONE, &debug, 0, "Debug"},
          POPT_AUTOHELP {}
       };
@@ -192,10 +194,10 @@ main (int argc, const char *argv[])
    {
       char *l = temp;
       char c = *l++;
-      double y = strtod (l, &l) * 2.54 / 72;
+      double y = strtod (l, &l) * scale * 2.54 / 72;
       if (*l == ',')
          l++;
-      double x = strtod (l, &l) * 2.54 / 72;
+      double x = strtod (l, &l) * scale * 2.54 / 72;
       if (c == 'M')
       {
          startx = x;
