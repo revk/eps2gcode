@@ -23,7 +23,7 @@ main (int argc, const char *argv[])
    int sign = 0;
    const char *infile = NULL;
    const char *outfile = NULL;
-   double zcut = -0.5;         // Default cut depth
+   double zcut = -0.1;         // Default cut depth (assuming you have some auto levelling)
    double zskip = 5;            // Well above
    double zclear = 0.5;         // Just above
    double scale = 1;
