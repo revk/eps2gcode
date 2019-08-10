@@ -7,6 +7,7 @@
 #include <string.h>
 #include <popt.h>
 #include <err.h>
+#include <math.h>
 
 int debug = 0;
 
@@ -18,7 +19,7 @@ main (int argc, const char *argv[])
    int fup = 0;
    int fskip = 500;
    int speed = 2000;
-   int places = 3;
+   int steps = 200;
    int g1 = 0;
    int sign = 0;
    const char *infile = NULL;
@@ -39,7 +40,7 @@ main (int argc, const char *argv[])
          {"out-file", 'o', POPT_ARG_STRING, &outfile, 0, "Output GCODE", "filename"},
          {"z-cut", 0, POPT_ARG_DOUBLE | POPT_ARGFLAG_SHOW_DEFAULT, &zcut, 0, "Cut depth", "mm"},
          {"z-skip", 0, POPT_ARG_DOUBLE | POPT_ARGFLAG_SHOW_DEFAULT, &zskip, 0, "Skip depth", "mm"},
-         {"places", 0, POPT_ARG_INT | POPT_ARGFLAG_SHOW_DEFAULT, &places, 0, "Decimal places", "N"},
+         {"steps", 0, POPT_ARG_INT | POPT_ARGFLAG_SHOW_DEFAULT, &steps, 0, "Steps per mm", "N"},
          {"g1", 0, POPT_ARG_NONE, &g1, 0, "Use G1 for skipping over"},
          {"neg", 0, POPT_ARG_NONE, &sign, 0, "Use negative X/Y"},
          {"scale", 'S', POPT_ARG_DOUBLE, &scale, 0, "Scale", "N"},
@@ -123,15 +124,30 @@ main (int argc, const char *argv[])
       lasty = 0;
    int isup = 0,
       lastf = 0;
+   char *decimal (double x)
+   {
+      static char temp[20];
+      char *p;
+      if (steps)
+         x = roundl (x * steps) / steps;
+      sprintf (temp, "%.6f", x);
+      p = temp + strlen (temp);
+      while (p > temp && p[-1] == '0')
+         p--;
+      if (p > temp && p[-1] == '.')
+         p--;
+      *p = 0;
+      return temp;
+   }
    void setx (double x)
    {
       if (x != lastx)
-         fprintf (o, "X%.*lf", places, (lastx = x) * sign);
+         fprintf (o, "X%s", decimal ((lastx = x) * sign));
    }
    void sety (double y)
    {
       if (y != lasty)
-         fprintf (o, "Y%.*lf", places, (lasty = y) * sign);
+         fprintf (o, "Y%s", decimal ((lasty = y) * sign));
    }
    void setf (double f)
    {
@@ -142,9 +158,9 @@ main (int argc, const char *argv[])
    {
       if (isup)
          return;
-      fprintf (o, "G1Z%.*lf", places, zclear);
+      fprintf (o, "G1Z%s", decimal (zclear));
       setf (fup);
-      fprintf (o, "\nG%dZ%.*lf", g1, places, zskip);
+      fprintf (o, "\nG%dZ%s", g1, decimal (zskip));
       setf (fskip);
       fprintf (o, "\n");
       isup = 1;
@@ -153,9 +169,9 @@ main (int argc, const char *argv[])
    {
       if (!isup)
          return;
-      fprintf (o, "G%dZ%.*lf", g1, places, zclear);
+      fprintf (o, "G%dZ%s", g1, decimal (zclear));
       setf (fskip);
-      fprintf (o, "\nG1Z%.*lf", places, zcut);
+      fprintf (o, "\nG1Z%s", decimal (zcut));
       setf (fdown);
       fprintf (o, "\n");
       isup = 0;
