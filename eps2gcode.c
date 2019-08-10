@@ -28,6 +28,7 @@ main (int argc, const char *argv[])
    double zskip = 5;            // Well above
    double zclear = 0.5;         // Just above
    double xslack = 0;
+   double zpark = 25;
    double yslack = 0;
    double scale = 1;
    {                            // POPT
@@ -42,6 +43,7 @@ main (int argc, const char *argv[])
          {"out-file", 'o', POPT_ARG_STRING, &outfile, 0, "Output GCODE", "filename"},
          {"z-cut", 0, POPT_ARG_DOUBLE | POPT_ARGFLAG_SHOW_DEFAULT, &zcut, 0, "Cut depth", "mm"},
          {"z-skip", 0, POPT_ARG_DOUBLE | POPT_ARGFLAG_SHOW_DEFAULT, &zskip, 0, "Skip depth", "mm"},
+         {"z-park", 0, POPT_ARG_DOUBLE | POPT_ARGFLAG_SHOW_DEFAULT, &zskip, 0, "Park for tool change", "mm"},
          {"steps", 0, POPT_ARG_INT | POPT_ARGFLAG_SHOW_DEFAULT, &steps, 0, "Steps per mm", "N"},
          {"x-slack", 0, POPT_ARG_DOUBLE, &xslack, 0, "X slack", "mm"},
          {"y-slack", 0, POPT_ARG_DOUBLE, &yslack, 0, "Y slack", "mm"},
@@ -162,13 +164,13 @@ main (int argc, const char *argv[])
       if (f != lastf)
          fprintf (o, "F%d", lastf = f);
    }
-   void up (void)
+   void up (double z)
    {
       if (isup)
          return;
       fprintf (o, "G1Z%s", decimal (zclear));
       setf (fup);
-      fprintf (o, "\nG%dZ%s", g1, decimal (zskip));
+      fprintf (o, "\nG%dZ%s", g1, decimal (z));
       setf (fskip);
       fprintf (o, "\n");
       isup = 1;
@@ -189,7 +191,7 @@ main (int argc, const char *argv[])
    {
       if (lastx == x && lasty == y)
          return;
-      up ();
+      up (zskip);
       fprintf (o, "G%d", g1);
       setx (x);
       sety (y);
@@ -212,7 +214,7 @@ main (int argc, const char *argv[])
       lasty = y;
 
    }
-   up ();
+   up (zskip);
    fprintf (o, "M3S%d\n", speed);
    while (fgets ((char *) temp, sizeof (temp), i))
    {
@@ -233,7 +235,7 @@ main (int argc, const char *argv[])
       if (c == 'Z')
          cut (startx, starty);
    }
-   up ();
+   up (zpark);
    fprintf (o, "M5\n");
    skip (0, 0);
    fprintf (o, "M30\n");
