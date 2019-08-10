@@ -145,19 +145,19 @@ main (int argc, const char *argv[])
       *p = 0;
       return temp;
    }
+   double lastdx = 0,
+      lastdy = 0,
+      dx = 0,
+      dy = 0;                   // Slack adjust
    void setx (double x)
    {
-      if (x < lastx)
-         fprintf (o, "X%s", decimal (((lastx = x) - xslack / 2) * sign));
-      else if (x > lastx)
-         fprintf (o, "X%s", decimal (((lastx = x) + xslack / 2) * sign));
+      if (x != lastx || lastdx != dx)
+         fprintf (o, "X%s", decimal (((lastx = x) + (lastdx = dx)) * sign));
    }
    void sety (double y)
    {
-      if (y < lasty)
-         fprintf (o, "Y%s", decimal (((lasty = y) - yslack / 2) * sign));
-      else if (y > lasty)
-         fprintf (o, "Y%s", decimal (((lasty = y) + yslack / 2) * sign));
+      if (y != lasty || lastdy != dy)
+         fprintf (o, "Y%s", decimal (((lasty = y) + (lastdy = dy)) * sign));
    }
    void setf (double f)
    {
@@ -193,6 +193,14 @@ main (int argc, const char *argv[])
          return;
       up (zskip);
       fprintf (o, "G%d", g1);
+      if (x < lastx)
+         dx = -xslack / 2;
+      else if (x > lastx)
+         dx = xslack / 2;
+      if (y < lasty)
+         dy = -yslack / 2;
+      else if (y > lasty)
+         dy = yslack / 2;
       setx (x);
       sety (y);
       setf (fskip);
@@ -204,6 +212,23 @@ main (int argc, const char *argv[])
    {
       if (lastx == x && lasty == y)
          return;
+      if (x < lastx)
+         dx = -xslack / 2;
+      else if (x > lastx)
+         dx = xslack / 2;
+      if (y < lasty)
+         dy = -yslack / 2;
+      else if (y > lasty)
+         dy = yslack / 2;
+      if (x != lastx && y != lasty && (lastdx != dx || lastdy != dy))
+      {                         // Slack adjust for diagonal before we move
+         down ();
+         fprintf (o, "G1");
+         setx (lastx);
+         sety (lasty);
+         setf (fcut);
+         fprintf (o, "\n");
+      }
       down ();
       fprintf (o, "G1");
       setx (x);
