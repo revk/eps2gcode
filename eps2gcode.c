@@ -27,6 +27,8 @@ main (int argc, const char *argv[])
    double zcut = -0.05;         // Default cut depth (assuming you have some auto levelling)
    double zskip = 5;            // Well above
    double zclear = 0.5;         // Just above
+   double xslack = 0;
+   double yslack = 0;
    double scale = 1;
    {                            // POPT
       poptContext optCon;       // context for parsing command-line options
@@ -41,6 +43,8 @@ main (int argc, const char *argv[])
          {"z-cut", 0, POPT_ARG_DOUBLE | POPT_ARGFLAG_SHOW_DEFAULT, &zcut, 0, "Cut depth", "mm"},
          {"z-skip", 0, POPT_ARG_DOUBLE | POPT_ARGFLAG_SHOW_DEFAULT, &zskip, 0, "Skip depth", "mm"},
          {"steps", 0, POPT_ARG_INT | POPT_ARGFLAG_SHOW_DEFAULT, &steps, 0, "Steps per mm", "N"},
+         {"x-slack", 0, POPT_ARG_DOUBLE, &xslack, 0, "X slack", "mm"},
+         {"y-slack", 0, POPT_ARG_DOUBLE, &yslack, 0, "Y slack", "mm"},
          {"g1", 0, POPT_ARG_NONE, &g1, 0, "Use G1 for skipping over"},
          {"neg", 0, POPT_ARG_NONE, &sign, 0, "Use negative X/Y"},
          {"scale", 'S', POPT_ARG_DOUBLE, &scale, 0, "Scale", "N"},
@@ -141,13 +145,17 @@ main (int argc, const char *argv[])
    }
    void setx (double x)
    {
-      if (x != lastx)
-         fprintf (o, "X%s", decimal ((lastx = x) * sign));
+      if (x < lastx)
+         fprintf (o, "X%s", decimal (((lastx = x) - xslack / 2) * sign));
+      else if (x > lastx)
+         fprintf (o, "X%s", decimal (((lastx = x) + xslack / 2) * sign));
    }
    void sety (double y)
    {
-      if (y != lasty)
-         fprintf (o, "Y%s", decimal ((lasty = y) * sign));
+      if (y < lasty)
+         fprintf (o, "Y%s", decimal (((lasty = y) - yslack / 2) * sign));
+      else if (y > lasty)
+         fprintf (o, "Y%s", decimal (((lasty = y) + yslack / 2) * sign));
    }
    void setf (double f)
    {
