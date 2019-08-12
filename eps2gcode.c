@@ -19,7 +19,7 @@ main (int argc, const char *argv[])
    int fup = 0;
    int fskip = 500;
    int speed = 2000;
-   int steps = 200;
+   int steps = 400; // Default for 8 micro steps on 4mm/rev 1.8 degrees
    int g1 = 0;
    int sign = 0;
    const char *infile = NULL;
