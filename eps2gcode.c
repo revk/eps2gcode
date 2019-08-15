@@ -332,6 +332,7 @@ main (int argc, const char *argv[])
    while (paths)
    {
       path_t **best = NULL;
+      point_t *bestloop = NULL;
       char bestrev = 0;
       {
          path_t **p = &paths;
@@ -343,17 +344,31 @@ main (int argc, const char *argv[])
          while (*p)
          {
             double d;
+            if ((*p)->sx == (*p)->ex && (*p)->sy == (*p)->ey)
+            {
+               point_t *q;
+               for (q = (*p)->points; q; q = q->next)
+                  if ((d = dist (q->x, q->y)) < bestdist)
+                  {
+                     best = p;
+                     bestdist = d;
+                     bestrev = 0;
+                     bestloop = q;
+                  }
+            }
             if ((d = dist ((*p)->sx, (*p)->sy)) < bestdist || !best)
             {
                best = p;
                bestdist = d;
                bestrev = 0;
+               bestloop = NULL;
             }
             if ((d = dist ((*p)->ex, (*p)->ey)) < bestdist || !best)
             {
                best = p;
                bestdist = d;
                bestrev = 1;
+               bestloop = NULL;
             }
             p = &((*p)->next);
          }
@@ -374,6 +389,20 @@ main (int argc, const char *argv[])
             q = n;
          }
          p->points = points;
+      } else if (bestloop && bestloop != p->points)
+      {                         // Start mid loop;
+         point_t *q = p->points;
+         while (q && q->next != bestloop)
+            q = q->next;
+         if (q)
+         {
+            q->next = NULL;
+            q = p->points;
+            p->points = bestloop;
+            while (bestloop->next)
+               bestloop = bestloop->next;
+            bestloop->next = q;
+         }
       }
       point_t *q = p->points;
       skip (q->x, q->y);
