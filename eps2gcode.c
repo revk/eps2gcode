@@ -382,7 +382,7 @@ main (int argc, const char *argv[])
          errx (1, "Bad best check");
       path_t *p = *best;
       *best = p->next;
-      if (p->points && p->points->next)
+      if (p->points && p->points->next &&(p->points->next->next || p->points->x != p->points->next->x || p->points->y != p->points->next->y))
       {
          if (bestrev)
          {
@@ -429,8 +429,6 @@ main (int argc, const char *argv[])
             q = p->points->next;
             free (p->points);
             p->points = q;
-            if (q)
-               cut (q->x, q->y);
          }
          free (p);
       }
