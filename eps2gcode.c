@@ -344,11 +344,11 @@ main (int argc, const char *argv[])
          while (*p)
          {
             double d;
-            if ((*p)->sx == (*p)->ex && (*p)->sy == (*p)->ey)
+            if (best && (*p)->sx == (*p)->ex && (*p)->sy == (*p)->ey)
             {                   // Loop
                point_t *q;
                for (q = (*p)->points; q; q = q->next)
-                  if ((d = dist (q->x, q->y)) < bestdist || !best)
+                  if ((d = dist (q->x, q->y)) < bestdist)
                   {
                      best = p;
                      bestdist = d;
