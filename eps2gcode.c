@@ -345,30 +345,32 @@ main (int argc, const char *argv[])
          {
             double d;
             if ((*p)->sx == (*p)->ex && (*p)->sy == (*p)->ey)
-            {
+            {                   // Loop
                point_t *q;
                for (q = (*p)->points; q; q = q->next)
-                  if ((d = dist (q->x, q->y)) < bestdist)
+                  if ((d = dist (q->x, q->y)) < bestdist || !best)
                   {
                      best = p;
                      bestdist = d;
                      bestrev = 0;
                      bestloop = q;
                   }
-            }
-            if ((d = dist ((*p)->sx, (*p)->sy)) < bestdist || !best)
-            {
-               best = p;
-               bestdist = d;
-               bestrev = 0;
-               bestloop = NULL;
-            }
-            if ((d = dist ((*p)->ex, (*p)->ey)) < bestdist || !best)
-            {
-               best = p;
-               bestdist = d;
-               bestrev = 1;
-               bestloop = NULL;
+            } else
+            {                   // Non loop, just check ends
+               if ((d = dist ((*p)->sx, (*p)->sy)) < bestdist || !best)
+               {
+                  best = p;
+                  bestdist = d;
+                  bestrev = 0;
+                  bestloop = NULL;
+               }
+               if ((d = dist ((*p)->ex, (*p)->ey)) < bestdist || !best)
+               {
+                  best = p;
+                  bestdist = d;
+                  bestrev = 1;
+                  bestloop = NULL;
+               }
             }
             p = &((*p)->next);
          }
@@ -396,7 +398,10 @@ main (int argc, const char *argv[])
             q = q->next;
          if (q)
          {
-            q->next = NULL;
+            q->next = malloc (sizeof (*q));
+            memset (q = q->next, 0, sizeof (*q));
+            q->x = bestloop->x;
+            q->y = bestloop->y;
             q = p->points;
             p->points = bestloop;
             while (bestloop->next)
