@@ -8,8 +8,31 @@
 #include <popt.h>
 #include <err.h>
 #include <math.h>
+#include <malloc.h>
 
 int debug = 0;
+
+typedef struct path_s path_t;
+typedef struct point_s point_t;
+
+struct point_s
+{
+   point_t *next;
+   double x,
+     y;
+};
+
+struct path_s
+{
+   path_t *next;
+   double sx,
+     sy;
+   double ex,
+     ey;
+   point_t *points;
+};
+
+path_t *paths = NULL;
 
 int
 main (int argc, const char *argv[])
@@ -19,7 +42,7 @@ main (int argc, const char *argv[])
    int fup = 0;
    int fskip = 500;
    int speed = 2000;
-   int steps = 400; // Default for 8 micro steps on 4mm/rev 1.8 degrees
+   int steps = 400;             // Default for 8 micro steps on 4mm/rev 1.8 degrees
    int g1 = 0;
    int sign = 0;
    const char *infile = NULL;
@@ -124,9 +147,7 @@ main (int argc, const char *argv[])
    if (!o)
       err (1, "Cannot open output");
    fprintf (o, "G90\nG21\n");
-   double startx = 0,
-      starty = 0,
-      lastx = 0,
+   double lastx = 0,
       lasty = 0;
    int isup = 0,
       lastf = 0;
@@ -239,8 +260,10 @@ main (int argc, const char *argv[])
       lasty = y;
 
    }
-   up (zskip);
    fprintf (o, "M3S%d\n", speed);
+   // Process paths
+   path_t *path = NULL;
+   point_t *point = NULL;
    while (fgets ((char *) temp, sizeof (temp), i))
    {
       char *l = temp;
@@ -249,16 +272,125 @@ main (int argc, const char *argv[])
       if (*l == ',')
          l++;
       double x = strtod (l, &l) * scale * 2.54 / 72;
-      if (c == 'M')
-      {
-         startx = x;
-         starty = y;
-         skip (x, y);
+      if (c == 'M' || !point)
+      {                         // Start path
+         path_t *p = malloc (sizeof (*p));
+         if (!p)
+            errx (1, "malloc");
+         memset (p, 0, sizeof (*p));
+         if (path)
+            path->next = p;
+         else
+            paths = p;
+         p->sx = x;
+         p->sy = y;
+         path = p;
+         point = malloc (sizeof (*point));
+         if (!point)
+            errx (1, "malloc");
+         memset (point, 0, sizeof (*point));
+         point->x = x;
+         point->y = y;
+         path->points = point;
+         continue;
       }
       if (c == 'L')
-         cut (x, y);
+      {
+         point_t *p = malloc (sizeof (*p));
+         if (!p)
+            errx (1, "malloc");
+         memset (p, 0, sizeof (*p));
+         point->next = p;
+         p->x = x;
+         p->y = y;
+         path->ex = p->x;
+         path->ey = p->y;
+         point = p;
+         continue;
+      }
       if (c == 'Z')
-         cut (startx, starty);
+      {
+         point_t *p = malloc (sizeof (*p));
+         if (!p)
+            errx (1, "malloc");
+         memset (p, 0, sizeof (*p));
+         point->next = p;
+         p->x = path->sx;
+         p->y = path->sx;
+         path->ex = p->x;
+         path->ey = p->y;
+         point = p;
+         path = NULL;
+         point = NULL;
+         continue;
+      }
+      if (c == 'X')
+         break;                 // End of page
+      warnx ("Unknown: %s", temp);
+   }
+   // Output
+   up (zskip);
+   while (paths)
+   {
+      path_t **best = NULL;
+      char bestrev = 0;
+      {
+         path_t **p = &paths;
+         double bestdist = 0;
+         double dist (double x, double y)
+         {
+            return fabs (x - lastx) * fabs (x - lastx) + fabs (y - lasty) * fabs (y - lasty);
+         }
+         while (*p)
+         {
+            double d;
+            if (!best || (d = dist ((*p)->sx, (*p)->sy)) < bestdist)
+            {
+               best = p;
+               bestdist = d;
+               bestrev = 0;
+            }
+            if (!best || (d = dist ((*p)->ex, (*p)->ey)) < bestdist)
+            {
+               best = p;
+               bestdist = d;
+               bestrev = 1;
+            }
+            p = &((*p)->next);
+         }
+      }
+      if (!best || !*best)
+         errx (1, "Bad best check");
+      path_t *p = *best;
+      *best = p->next;
+      if (bestrev)
+      {
+         point_t *points = NULL;
+         point_t *q = p->points;
+         while (q)
+         {
+            point_t *n = q->next;
+            q->next = points;
+            points = q;
+            q = n;
+         }
+         p->points = points;
+      }
+      point_t *q = p->points;
+      skip (q->x, q->y);
+      q = q->next;
+      while (q)
+      {
+         cut (q->x, q->y);
+         q = q->next;
+      }
+      while (p->points)
+      {
+         q = p->points->next;
+         free (p->points);
+         p->points = q;
+      }
+      free (p);
    }
    up (zpark);
    fprintf (o, "M5\n");
