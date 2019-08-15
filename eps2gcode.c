@@ -300,11 +300,11 @@ main (int argc, const char *argv[])
          if (!p)
             errx (1, "malloc");
          memset (p, 0, sizeof (*p));
-         point->next = p;
          p->x = x;
          p->y = y;
          path->ex = p->x;
          path->ey = p->y;
+         point->next = p;
          point = p;
          continue;
       }
@@ -314,13 +314,12 @@ main (int argc, const char *argv[])
          if (!p)
             errx (1, "malloc");
          memset (p, 0, sizeof (*p));
-         point->next = p;
          p->x = path->sx;
-         p->y = path->sx;
+         p->y = path->sy;
          path->ex = p->x;
          path->ey = p->y;
+         point->next = p;
          point = p;
-         path = NULL;
          point = NULL;
          continue;
       }
@@ -344,13 +343,13 @@ main (int argc, const char *argv[])
          while (*p)
          {
             double d;
-            if (!best || (d = dist ((*p)->sx, (*p)->sy)) < bestdist)
+            if ((d = dist ((*p)->sx, (*p)->sy)) < bestdist || !best)
             {
                best = p;
                bestdist = d;
                bestrev = 0;
             }
-            if (!best || (d = dist ((*p)->ex, (*p)->ey)) < bestdist)
+            if ((d = dist ((*p)->ex, (*p)->ey)) < bestdist || !best)
             {
                best = p;
                bestdist = d;
@@ -378,17 +377,13 @@ main (int argc, const char *argv[])
       }
       point_t *q = p->points;
       skip (q->x, q->y);
-      q = q->next;
-      while (q)
-      {
-         cut (q->x, q->y);
-         q = q->next;
-      }
       while (p->points)
       {
          q = p->points->next;
          free (p->points);
          p->points = q;
+         if (q)
+            cut (q->x, q->y);
       }
       free (p);
    }
