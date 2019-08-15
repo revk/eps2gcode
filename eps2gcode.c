@@ -339,7 +339,10 @@ main (int argc, const char *argv[])
          double bestdist = 0;
          double dist (double x, double y)
          {
-            return fabs (x - lastx) * fabs (x - lastx) + fabs (y - lasty) * fabs (y - lasty);
+            double d = fabs (x - lastx) * fabs (x - lastx) + fabs (y - lasty) * fabs (y - lasty);
+            if (debug)
+               fprintf (stderr, "Check %lf/%lf %lf/%lf %lf\n", lastx, lasty, x, y, d);
+            return d;
          }
          while (*p)
          {
@@ -379,47 +382,58 @@ main (int argc, const char *argv[])
          errx (1, "Bad best check");
       path_t *p = *best;
       *best = p->next;
-      if (bestrev)
+      if (p->points && p->points->next)
       {
-         point_t *points = NULL;
+         if (bestrev)
+         {
+            point_t *points = NULL;
+            point_t *q = p->points;
+            while (q)
+            {
+               point_t *n = q->next;
+               q->next = points;
+               points = q;
+               q = n;
+            }
+            p->points = points;
+         } else if (bestloop && bestloop != p->points)
+         {                      // Start mid loop;
+            point_t *q = p->points;
+            while (q && q->next != bestloop)
+               q = q->next;
+            if (q)
+            {
+               q->next = malloc (sizeof (*q));
+               memset (q = q->next, 0, sizeof (*q));
+               q->x = bestloop->x;
+               q->y = bestloop->y;
+               q = p->points;
+               p->points = bestloop;
+               while (bestloop->next)
+                  bestloop = bestloop->next;
+               bestloop->next = q;
+            }
+         }
          point_t *q = p->points;
+         skip (q->x, q->y);
          while (q)
          {
-            point_t *n = q->next;
-            q->next = points;
-            points = q;
-            q = n;
-         }
-         p->points = points;
-      } else if (bestloop && bestloop != p->points)
-      {                         // Start mid loop;
-         point_t *q = p->points;
-         while (q && q->next != bestloop)
-            q = q->next;
-         if (q)
-         {
-            q->next = malloc (sizeof (*q));
-            memset (q = q->next, 0, sizeof (*q));
-            q->x = bestloop->x;
-            q->y = bestloop->y;
-            q = p->points;
-            p->points = bestloop;
-            while (bestloop->next)
-               bestloop = bestloop->next;
-            bestloop->next = q;
-         }
-      }
-      point_t *q = p->points;
-      skip (q->x, q->y);
-      while (p->points)
-      {
-         q = p->points->next;
-         free (p->points);
-         p->points = q;
-         if (q)
             cut (q->x, q->y);
+            q = q->next;
+         }
       }
-      free (p);
+      {                         // Free
+         point_t *q;
+         while (p->points)
+         {
+            q = p->points->next;
+            free (p->points);
+            p->points = q;
+            if (q)
+               cut (q->x, q->y);
+         }
+         free (p);
+      }
    }
    up (zpark);
    fprintf (o, "M5\n");
