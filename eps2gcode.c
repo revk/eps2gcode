@@ -11,6 +11,7 @@
 #include <malloc.h>
 
 int debug = 0;
+int silent = 0;
 
 typedef struct line_s line_t;
 struct line_s
@@ -22,7 +23,26 @@ struct line_s
      y2;
 };
 
+typedef struct point_s point_t;
+struct point_s
+{
+   point_t *next;
+   double x,
+     y;
+};
+
+typedef struct path_s path_t;
+struct path_s
+{
+   path_t *next;
+   point_t *start,
+    *end;
+};
+
 line_t *lines = NULL;
+int linecount = 0;
+path_t *paths = NULL;
+int pathcount = 0;
 
 int
 main (int argc, const char *argv[])
@@ -64,6 +84,7 @@ main (int argc, const char *argv[])
          {"neg", 0, POPT_ARG_NONE, &sign, 0, "Use negative X/Y"},
          {"scale", 'S', POPT_ARG_DOUBLE, &scale, 0, "Scale", "N"},
          {"debug", 'v', POPT_ARG_NONE, &debug, 0, "Debug"},
+         {"silent", 'q', POPT_ARG_NONE, &silent, 0, "Silent"},
          POPT_AUTOHELP {}
       };
 
@@ -250,6 +271,35 @@ main (int argc, const char *argv[])
       lasty = y;
 
    }
+   void spin (path_t * p, point_t * q)
+   {                            // Cycle path to new start
+      if (p->start->x != p->end->x || p->start->y != p->end->y)
+         return;                // Not a loop;
+      point_t *z = p->start;
+      p->start = z->next;       // Remove duplicate point
+      point_t *new = q;
+      while (q->next)
+         q = q->next;
+      q->next = p->start;
+      while (q->next != new)
+         q = q->next;
+      z->x = new->x;            // Loop
+      z->y = new->y;
+      z->next = NULL;
+      q->next = z;
+      p->end = z;
+      p->start = new;
+   }
+   line_t *swap (line_t * l)
+   {                            // Reverse line
+      double x = l->x1;
+      l->x1 = l->x2;
+      l->x2 = x;
+      double y = l->y1;
+      l->y1 = l->y2;
+      l->y2 = y;
+      return l;
+   }
    fprintf (o, "M3S%d\n", speed);
    {                            // Process paths
       double firstx = 0,
@@ -274,6 +324,7 @@ main (int argc, const char *argv[])
          {
             if (x == prevx && y == prevy)
                continue;
+            linecount++;
             line_t *l = malloc (sizeof (*l));
             if (!l)
                errx (1, "malloc");
@@ -292,6 +343,7 @@ main (int argc, const char *argv[])
          {
             if (x == firstx && y == firsty)
                continue;
+            linecount++;
             line_t *l = malloc (sizeof (*l));
             if (!l)
                errx (1, "malloc");
@@ -309,54 +361,194 @@ main (int argc, const char *argv[])
          warnx ("Unknown: %s", temp);
       }
    }
+   if (debug)
+   {
+      line_t *l;
+      for (l = lines; l; l = l->next)
+         fprintf (stderr, "%lf/%lf %lf/%lf\n", l->x1, l->y1, l->x2, l->y2);
+   }
+   {                            // Make paths
+      path_t *path = NULL;
+      while (lines)
+      {
+         if (!path)
+         {                      // New path - pick any line
+            line_t *l = lines;
+            lines = l->next;
+            if (debug)
+               fprintf (stderr, "Make new path %lf/%lf %lf/%lf\n", l->x1, l->y1, l->x2, l->y2);
+            pathcount++;
+            path = malloc (sizeof (*path));
+            if (!path)
+               errx (1, "malloc");
+            memset (path, 0, sizeof (*path));
+            path->next = paths;
+            paths = path;
+            point_t *q = malloc (sizeof (*q));
+            if (!q)
+               errx (1, "malloc");
+            memset (q, 0, sizeof (*q));
+            q->x = l->x1;
+            q->y = l->y1;
+            path->start = q;
+            q = malloc (sizeof (*q));
+            if (!q)
+               errx (1, "malloc");
+            memset (q, 0, sizeof (*q));
+            q->x = l->x2;
+            q->y = l->y2;
+            path->start->next = path->end = q;
+            free (l);
+            continue;
+         }
+         line_t *find (double x, double y)
+         {                      // Find (and unlink) a line that hits a point, returns with x1/y1 matching
+            line_t **ll = &lines;
+            while (*ll)
+            {
+               line_t *l = *ll;
+               if (l->x1 == x && l->y1 == y)
+               {                // Found
+                  *ll = l->next;
+                  return l;
+               }
+               if (l->x2 == x && l->y2 == y)
+               {                // Found
+                  *ll = l->next;
+                  return swap (l);
+               }
+               ll = &(l->next);
+            }
+            return NULL;
+         }
+         line_t *l = NULL;
+         if (path->start->x == path->end->x && path->start->y == path->end->y)
+         {                      // Loop, find line to join anywhere
+            point_t *q;
+            for (q = path->start; q; q = q->next)
+            {
+               if ((l = find (q->x, q->y)))
+               {                // Found point in the path
+                  if (q != path->start)
+                     spin (path, q);
+                  break;
+               }
+            }
+         }
+         if (!l)
+            l = find (path->start->x, path->start->y);
+         if (l)
+         {                      // Add to start
+            if (debug)
+               fprintf (stderr, "Add to start  %lf/%lf %lf/%lf\n", l->x1, l->y1, l->x2, l->y2);
+            point_t *q = malloc (sizeof (*q));
+            if (!q)
+               errx (1, "malloc");
+            memset (q, 0, sizeof (*q));
+            q->x = l->x2;
+            q->y = l->y2;
+            q->next = path->start;
+            path->start = q;
+            free (l);
+         } else if ((l = find (path->end->x, path->end->y)))
+         {
+            if (debug)
+               fprintf (stderr, "Add to end    %lf/%lf %lf/%lf\n", l->x1, l->y1, l->x2, l->y2);
+            point_t *q = malloc (sizeof (*q));
+            if (!q)
+               errx (1, "malloc");
+            memset (q, 0, sizeof (*q));
+            q->x = l->x2;
+            q->y = l->y2;
+            path->end->next = q;
+            path->end = q;
+            free (l);
+         } else
+            path = NULL;        // New path
+      }
+   }
+   if (!silent)
+      fprintf (stderr, "Lines %d Paths %d\n", linecount, pathcount);
    // Output
    up (zskip);
-   while (lines)
+   while (paths)
    {
-      line_t **best = NULL;
+      path_t **best = NULL;
+      point_t *beststart = NULL;
       char bestrev = 0;
       {
-         line_t **l = &lines;
          double bestdist = 0;
-         double dist (double x, double y )
+         double dist (double x, double y)
          {
             double d = fabs (x - lastx) * fabs (x - lastx) + fabs (y - lasty) * fabs (y - lasty);
-            if (debug)
-               fprintf (stderr, "Check %lf/%lf %lf/%lf %lf\n", lastx, lasty, x, y, d);
             return d;
          }
-         while (*l)
+         path_t **pp = &paths;
+         while (*pp)
          {
+            path_t *p = (*pp);
             double d;
-            if ((d = dist ((*l)->x1, (*l)->y1)) < bestdist || !best)
+            if (p->start->x == p->end->x && p->start->y == p->end->y)
+            {                   // Loop, start anywhere
+               point_t *q;
+               for (q = p->start; q; q = q->next)
+                  if ((d = dist (q->x, q->y)) < bestdist || !best)
+                  {
+                     best = pp;
+                     bestdist = d;
+                     bestrev = 0;
+                     beststart = q;
+                  }
+            }
+            if ((d = dist (p->start->x, p->start->y)) < bestdist || !best)
             {
-               best = l;
+               best = pp;
                bestdist = d;
                bestrev = 0;
+               beststart = NULL;
             }
-            if ((d = dist ((*l)->x2, (*l)->y2)) < bestdist || !best)
+            if ((d = dist (p->end->x, p->end->y)) < bestdist || !best)
             {
-               best = l;
+               best = pp;
                bestdist = d;
                bestrev = 1;
+               beststart = NULL;
             }
-            l = &((*l)->next);
+            pp = &(p->next);
          }
       }
       if (!best || !*best)
          errx (1, "Bad best check");
-      line_t *l = *best;
-      *best = l->next;
-      if (bestrev)
-      {
-         skip (l->x2, l->y2);
-         cut (l->x1, l->y1);
-      } else
-      {
-         skip (l->x1, l->y1);
-         cut (l->x2, l->y2);
+      path_t *p = (*best);
+      *best = p->next;          // Unlink
+      if (debug)
+         fprintf (stderr, "Best %lf/%lf %lf/%lf\n", p->start->x, p->start->y, p->end->x, p->end->y);
+      if (beststart && beststart != p->start)
+         spin (p, beststart);
+      else if (bestrev)
+      {                         // reverse loop
+         point_t *new = NULL,
+            *q = p->start;
+         while (q)
+         {
+            point_t *n = q->next;
+            q->next = new;
+            new = q;
+            q = n;
+         }
+         p->start = new;
       }
-      free (l);
+      // Output path
+      point_t *q = p->start;
+      skip (q->x, q->y);
+      while (q)
+      {
+         point_t *n = q->next;
+         cut (q->x, q->y);
+         free (q);
+         q = n;
+      }
+      free (p);
    }
    up (zpark);
    fprintf (o, "M5\n");
