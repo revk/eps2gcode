@@ -64,6 +64,7 @@ main (int argc, const char *argv[])
    double zpark = 25;
    double yslack = 0;
    double scale = 1;
+   double linewidth = 0;
    {                            // POPT
       poptContext optCon;       // context for parsing command-line options
       const struct poptOption optionsTable[] = {
@@ -80,6 +81,7 @@ main (int argc, const char *argv[])
          {"steps", 0, POPT_ARG_INT | POPT_ARGFLAG_SHOW_DEFAULT, &steps, 0, "Steps per mm", "N"},
          {"x-slack", 0, POPT_ARG_DOUBLE, &xslack, 0, "X slack", "mm"},
          {"y-slack", 0, POPT_ARG_DOUBLE, &yslack, 0, "Y slack", "mm"},
+         {"line-width", 0, POPT_ARG_DOUBLE, &linewidth, 0, "Line with to capture", "mm"},
          {"g1", 0, POPT_ARG_NONE, &g1, 0, "Use G1 for skipping over"},
          {"neg", 0, POPT_ARG_NONE, &sign, 0, "Use negative X/Y"},
          {"scale", 'S', POPT_ARG_DOUBLE, &scale, 0, "Scale", "N"},
@@ -135,7 +137,7 @@ main (int argc, const char *argv[])
    }
    fprintf
       (g,
-       "/==={(        )cvs print}def/stroke{flattenpath{transform(M)=== round cvi ===(,)=== round cvi =}{transform(L)=== round cvi ===(,)=== round cvi =}{}{(Z)=}pathforall newpath}bind def/showpage{(X)= showpage}bind def\n");
+       "/==={(        )cvs print}def/setlinewidth{(W)=== =}bind def/stroke{flattenpath{transform(M)=== round cvi ===(,)=== round cvi =}{transform(L)=== round cvi ===(,)=== round cvi =}{}{(Z)=}pathforall newpath}bind def/showpage{(X)= showpage}bind def\n");
    ssize_t l;
    while ((l = fread (temp, 1, sizeof (temp), i)) > 0)
       l = fwrite (temp, 1, l, g);       // Rest of file
@@ -158,6 +160,7 @@ main (int argc, const char *argv[])
    if (!o)
       err (1, "Cannot open output");
    fprintf (o, "G90\nG21\n");
+   double line = 0;
    double lastx = 0,
       lasty = 0;
    int isup = 0,
@@ -314,6 +317,13 @@ main (int argc, const char *argv[])
          if (*l == ',')
             l++;
          double x = strtod (l, &l) * scale * 2.54 / 72;
+         if (c == 'W')
+         {
+            line = round(y*100)/10;  // (mm)
+            if(debug)fprintf (stderr, "Width %lfmm\n", line);
+            continue;
+         }
+	 if(linewidth&&linewidth!=line)continue; // Not the width we are after
          if (c == 'M')
          {                      // Start path
             firstx = prevx = x;
