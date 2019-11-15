@@ -243,13 +243,13 @@ main (int argc, const char *argv[])
       fprintf (o, "\n");
       isup = 1;
    }
-   void down (void)
+   void down (double x, double y)
    {
       if (!isup)
          return;
       fprintf (o, "G%dZ%s", g1, decimal (zclear));
       setf (fskip);
-      fprintf (o, "\nG1Z%s", decimal ((lastz = zcut) + dz (lastz, lasty)));
+      fprintf (o, "\nG1Z%s", decimal ((lastz = zcut) + dz (x, y)));
       setf (fdown);
       fprintf (o, "\n");
       isup = 0;
@@ -289,13 +289,13 @@ main (int argc, const char *argv[])
          dy = yslack / 2;
       if (x != lastx && y != lasty && (lastdx != dx || lastdy != dy))
       {                         // Slack adjust for diagonal before we move
-         down ();
+         down (lastz, lasty);
          fprintf (o, "G1");
          setxy (lastx, lasty);
          setf (fcut);
          fprintf (o, "\n");
       }
-      down ();
+      down (x, y);
       fprintf (o, "G1");
       setxy (x, y);
       setf (fcut);
