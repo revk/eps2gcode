@@ -65,6 +65,12 @@ main (int argc, const char *argv[])
    double yslack = 0;
    double scale = 1;
    double linewidth = 0;
+   char *level = NULL;
+   double levelw = 0,
+      levelh = 0,
+      levelb = 0,
+      levelc = 0,
+      leveld = 0;
    {                            // POPT
       poptContext optCon;       // context for parsing command-line options
       const struct poptOption optionsTable[] = {
@@ -81,6 +87,7 @@ main (int argc, const char *argv[])
          {"steps", 0, POPT_ARG_INT | POPT_ARGFLAG_SHOW_DEFAULT, &steps, 0, "Steps per mm", "N"},
          {"x-slack", 0, POPT_ARG_DOUBLE, &xslack, 0, "X slack", "mm"},
          {"y-slack", 0, POPT_ARG_DOUBLE, &yslack, 0, "Y slack", "mm"},
+         {"level", 'L', POPT_ARG_STRING, &level, 0, "Level", "width height bottom/right top/right top/left"},
          {"line-width", 0, POPT_ARG_DOUBLE, &linewidth, 0, "Line with to capture", "mm"},
          {"g1", 0, POPT_ARG_NONE, &g1, 0, "Use G1 for skipping over"},
          {"neg", 0, POPT_ARG_NONE, &sign, 0, "Use negative X/Y"},
@@ -113,6 +120,28 @@ main (int argc, const char *argv[])
       sign = -1;
    else
       sign = 1;
+   if (level)
+   {
+      levelw = strtod (level, &level);
+      levelh = strtod (level, &level);
+      levelb = strtod (level, &level);
+      levelc = strtod (level, &level);
+      leveld = strtod (level, &level);
+      if (debug)
+         fprintf (stderr, "Leveling %lfx%lf %lf %lf %lf\n", levelw, levelh, levelb, levelc, leveld);
+      if (!levelw)
+      {
+         levelw = 1;
+         levelb = 0;
+         levelc = leveld;
+      }
+      if (!levelh)
+      {
+         levelh = 1;
+         leveld = 0;
+         levelc = levelb;
+      }
+   }
    // Defaults
    if (!fdown)
       fdown = fcut;
@@ -155,7 +184,7 @@ main (int argc, const char *argv[])
    if (!i)
       err (1, "Cannot open vector file");
    FILE *o = stdout;
-   if (outfile && strcmp (outfile, "i"))
+   if (outfile && strcmp (outfile, "-"))
       o = fopen (outfile, "w");
    if (!o)
       err (1, "Cannot open output");
@@ -182,17 +211,21 @@ main (int argc, const char *argv[])
    }
    double lastdx = 0,
       lastdy = 0,
+      lastz = 0,
       dx = 0,
       dy = 0;                   // Slack adjust
-   void setx (double x)
+   float dz (double x, double y)
+   {
+      return (0 + levelb * x / levelw) * (1 - y / levelh) + (leveld + (levelc - leveld) * x / levelw) * (y / levelh);
+   }
+   void setxy (double x, double y)
    {
       if (x != lastx || lastdx != dx)
          fprintf (o, "X%s", decimal (((lastx = x) + (lastdx = dx)) * sign));
-   }
-   void sety (double y)
-   {
       if (y != lasty || lastdy != dy)
          fprintf (o, "Y%s", decimal (((lasty = y) + (lastdy = dy)) * sign));
+      if (levelb || levelc || leveld)
+         fprintf (o, "Z%s", decimal (lastz + dz (x, y)));
    }
    void setf (double f)
    {
@@ -205,7 +238,7 @@ main (int argc, const char *argv[])
          return;
       fprintf (o, "G1Z%s", decimal (zclear));
       setf (fup);
-      fprintf (o, "\nG%dZ%s", g1, decimal (z));
+      fprintf (o, "\nG%dZ%s", g1, decimal (lastz = z));
       setf (fskip);
       fprintf (o, "\n");
       isup = 1;
@@ -216,7 +249,7 @@ main (int argc, const char *argv[])
          return;
       fprintf (o, "G%dZ%s", g1, decimal (zclear));
       setf (fskip);
-      fprintf (o, "\nG1Z%s", decimal (zcut));
+      fprintf (o, "\nG1Z%s", decimal ((lastz = zcut) + dz (lastz, lasty)));
       setf (fdown);
       fprintf (o, "\n");
       isup = 0;
@@ -236,8 +269,7 @@ main (int argc, const char *argv[])
          dy = -yslack / 2;
       else if (y > lasty)
          dy = yslack / 2;
-      setx (x);
-      sety (y);
+      setxy (x, y);
       setf (fskip);
       fprintf (o, "\n");
       lastx = x;
@@ -259,15 +291,13 @@ main (int argc, const char *argv[])
       {                         // Slack adjust for diagonal before we move
          down ();
          fprintf (o, "G1");
-         setx (lastx);
-         sety (lasty);
+         setxy (lastx, lasty);
          setf (fcut);
          fprintf (o, "\n");
       }
       down ();
       fprintf (o, "G1");
-      setx (x);
-      sety (y);
+      setxy (x, y);
       setf (fcut);
       fprintf (o, "\n");
       lastx = x;
@@ -319,11 +349,13 @@ main (int argc, const char *argv[])
          double x = strtod (l, &l) * scale * 2.54 / 72;
          if (c == 'W')
          {
-            line = round(y*100)/10;  // (mm)
-            if(debug)fprintf (stderr, "Width %lfmm\n", line);
+            line = round (y * 100) / 10;        // (mm)
+            if (debug)
+               fprintf (stderr, "Width %lfmm\n", line);
             continue;
          }
-	 if(linewidth&&linewidth!=line)continue; // Not the width we are after
+         if (linewidth && linewidth != line)
+            continue;           // Not the width we are after
          if (c == 'M')
          {                      // Start path
             firstx = prevx = x;
@@ -479,6 +511,8 @@ main (int argc, const char *argv[])
    }
    if (!silent)
       fprintf (stderr, "Lines %d Paths %d\n", linecount, pathcount);
+   if (!paths && outfile && strcmp (outfile, "-"))
+      unlink (outfile);         // No output
    // Output
    up (zskip);
    while (paths)
