@@ -217,6 +217,7 @@ main (int argc, const char *argv[])
    float dz (double x, double y)
    {
       double z= (levelb * x / levelw) * (1 - y / levelh) + (leveld + (levelc - leveld) * x / levelw) * (y / levelh);
+      if(debug)fprintf(stderr,"x=%.3f y=%.3f z=%.3f (b=%.3f c=%.3f d=%.3f)\n",x,y,z,levelb,levelc,leveld);
       return z;
    }
    void setxy (double x, double y)
