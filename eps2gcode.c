@@ -216,7 +216,8 @@ main (int argc, const char *argv[])
       dy = 0;                   // Slack adjust
    float dz (double x, double y)
    {
-      return (0 + levelb * x / levelw) * (1 - y / levelh) + (leveld + (levelc - leveld) * x / levelw) * (y / levelh);
+      double z= (levelb * x / levelw) * (1 - y / levelh) + (leveld + (levelc - leveld) * x / levelw) * (y / levelh);
+      return z;
    }
    void setxy (double x, double y)
    {
@@ -243,13 +244,13 @@ main (int argc, const char *argv[])
       fprintf (o, "\n");
       isup = 1;
    }
-   void down (double x, double y)
+   void down (void)
    {
       if (!isup)
          return;
       fprintf (o, "G%dZ%s", g1, decimal (zclear));
       setf (fskip);
-      fprintf (o, "\nG1Z%s", decimal ((lastz = zcut) + dz (x, y)));
+      fprintf (o, "\nG1Z%s", decimal ((lastz = zcut) + dz (lastx, lasty)));
       setf (fdown);
       fprintf (o, "\n");
       isup = 0;
@@ -289,13 +290,13 @@ main (int argc, const char *argv[])
          dy = yslack / 2;
       if (x != lastx && y != lasty && (lastdx != dx || lastdy != dy))
       {                         // Slack adjust for diagonal before we move
-         down (lastz, lasty);
+         down ();
          fprintf (o, "G1");
          setxy (lastx, lasty);
          setf (fcut);
          fprintf (o, "\n");
       }
-      down (x, y);
+      down ();
       fprintf (o, "G1");
       setxy (x, y);
       setf (fcut);
