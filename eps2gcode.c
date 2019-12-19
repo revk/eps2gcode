@@ -216,8 +216,11 @@ main (int argc, const char *argv[])
       dy = 0;                   // Slack adjust
    float dz (double x, double y)
    {
-      double z= (levelb * x / levelw) * (1 - y / levelh) + (leveld + (levelc - leveld) * x / levelw) * (y / levelh);
-      if(debug)fprintf(stderr,"x=%.3f y=%.3f z=%.3f (b=%.3f c=%.3f d=%.3f)\n",x,y,z,levelb,levelc,leveld);
+      if (!level)
+         return 0;
+      double z = (levelb * x / levelw) * (1 - y / levelh) + (leveld + (levelc - leveld) * x / levelw) * (y / levelh);
+      if (debug)
+         fprintf (stderr, "x=%.3f y=%.3f z=%.3f (b=%.3f c=%.3f d=%.3f)\n", x, y, z, levelb, levelc, leveld);
       return z;
    }
    void setxy (double x, double y)
